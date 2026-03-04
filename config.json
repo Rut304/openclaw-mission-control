@@ -1,0 +1,54 @@
+{
+  "branding": {
+    "title": "RutRoh Mission Control",
+    "logo": "\ud83e\udd9e",
+    "tagline": "AI Agents Making Money 24/7",
+    "primaryColor": "#FF6B6B",
+    "secondaryColor": "#4ECDC4"
+  },
+  "gateway": {
+    "url": "ws://127.0.0.1:18789",
+    "token": "a9b0d02284785ec60484fbcdae331369c8a4e147782c699b"
+  },
+  "features": {
+    "kanban": true,
+    "agents": true,
+    "activity": true,
+    "revenue": true,
+    "costs": true,
+    "kalshi": true,
+    "content": true
+  },
+  "widgets": [
+    {
+      "id": "revenue",
+      "title": "\ud83d\udcb0 Daily Revenue",
+      "type": "metric",
+      "value": "$0",
+      "target": "$500/day"
+    },
+    {
+      "id": "api-costs",
+      "title": "\ud83d\udcca API Costs",
+      "type": "metric",
+      "value": "$400+",
+      "limit": "$10/day",
+      "alert": true
+    },
+    {
+      "id": "kalshi",
+      "title": "\ud83c\udfb0 Kalshi P&L",
+      "type": "metric",
+      "value": "-$10",
+      "balance": "$108"
+    },
+    {
+      "id": "content",
+      "title": "\ud83d\udcf1 Content Posted",
+      "type": "counter",
+      "tiktok": 0,
+      "twitter": 0,
+      "youtube": 0
+    }
+  ]
+}

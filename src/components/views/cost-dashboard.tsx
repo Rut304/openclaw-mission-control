@@ -179,7 +179,7 @@ export function CostDashboard() {
   ];
 
   return (
-    <div className="flex-1 overflow-auto p-6">
+    <div className="flex-1 overflow-auto min-h-0 p-4 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>

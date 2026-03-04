@@ -26,6 +26,13 @@ import {
   Clock,
   FileText,
   MessageSquare,
+  GitBranch,
+  BarChart3,
+  Building2,
+  Newspaper,
+  Share2,
+  Tag,
+  FolderOpen,
 } from "lucide-react";
 import { ToolsPlayground } from "@/components/views/tools-playground";
 import { CostDashboard } from "@/components/views/cost-dashboard";
@@ -34,6 +41,17 @@ import { CronScheduler } from "@/components/views/cron-scheduler";
 import { LogsViewer } from "@/components/views/logs-viewer";
 import { SettingsPanel, getStoredModelPreference } from "@/components/views/settings-panel";
 import { ChatPanel } from "@/components/views/chat-panel";
+import { MissionsView } from "@/components/views/missions-view";
+import { CEODashboard } from "@/components/views/ceo-dashboard";
+import { WorkflowsView } from "@/components/views/workflows-view";
+import { ModelManagement } from "@/components/views/model-management";
+import { KnowledgeBase } from "@/components/views/knowledge-base";
+import { FinanceView } from "@/components/views/finance-view";
+import { AgentOffice } from "@/components/views/agent-office";
+import { NewsView } from "@/components/views/news-view";
+import { SocialMediaView } from "@/components/views/social-media-view";
+import { DocsView } from "@/components/views/docs-view";
+import { ReleaseNotes } from "@/components/views/release-notes";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -70,6 +88,7 @@ interface Task {
   mission_id: string | null;
   assigned_agent_id: string | null;
   openclaw_session_key: string | null;
+  reviewer_id: string | null;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -205,13 +224,12 @@ function ThemeToggle() {
 }
 
 // --- View routing ---
-const VALID_VIEWS = ["board", "agents", "missions", "tools", "usage", "approvals", "cron", "logs", "settings", "chat"] as const;
+const VALID_VIEWS = ["overview", "office", "board", "agents", "missions", "workflows", "knowledge", "tools", "usage", "finance", "models", "approvals", "cron", "logs", "settings", "chat", "news", "social", "docs", "releases"] as const;
 type ViewId = (typeof VALID_VIEWS)[number];
 
 function getViewFromHash(): ViewId {
-  if (typeof window === "undefined") return "board";
   const hash = window.location.hash.replace("#", "");
-  return (VALID_VIEWS as readonly string[]).includes(hash) ? (hash as ViewId) : "board";
+  return (VALID_VIEWS as readonly string[]).includes(hash) ? (hash as ViewId) : "overview";
 }
 
 // --- Main Component ---
@@ -228,10 +246,15 @@ export default function Dashboard() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDispatchModal, setShowDispatchModal] = useState<Task | null>(null);
   const [showTaskDetail, setShowTaskDetail] = useState<Task | null>(null);
-  const [activeView, setActiveViewState] = useState<ViewId>(getViewFromHash);
+  const [activeView, setActiveViewState] = useState<ViewId>("overview");
   const setActiveView = useCallback((view: ViewId) => {
     setActiveViewState(view);
-    window.location.hash = view === "board" ? "" : view;
+    window.location.hash = view === "overview" ? "" : view;
+  }, []);
+
+  // Sync with hash after hydration
+  useEffect(() => {
+    setActiveViewState(getViewFromHash());
   }, []);
 
   useEffect(() => {
@@ -375,87 +398,102 @@ export default function Dashboard() {
 
   const getColumnTasks = (status: string) => tasks.filter((t) => t.status === status);
 
-  const NAV_ITEMS = [
-    { id: "board" as const, icon: LayoutDashboard, label: "Dashboard" },
-    { id: "chat" as const, icon: MessageSquare, label: "Chat" },
-    { id: "agents" as const, icon: Bot, label: "Agents" },
-    { id: "missions" as const, icon: Rocket, label: "Missions" },
-    { id: "tools" as const, icon: Wrench, label: "Tools" },
-    { id: "usage" as const, icon: DollarSign, label: "Usage" },
-    { id: "approvals" as const, icon: Shield, label: "Approvals" },
-    { id: "cron" as const, icon: Clock, label: "Schedules" },
-    { id: "logs" as const, icon: FileText, label: "Logs" },
+  const NAV_SECTIONS = [
+    {
+      label: "COMMAND",
+      items: [
+        { id: "overview" as const, icon: LayoutDashboard, label: "Rut's Home" },
+        { id: "chat" as const, icon: MessageSquare, label: "Chat" },
+      ],
+    },
+    {
+      label: "OPERATIONS",
+      items: [
+        { id: "office" as const, icon: Building2, label: "Agents" },
+        { id: "board" as const, icon: CheckCircle2, label: "Tasks" },
+        { id: "missions" as const, icon: Rocket, label: "Missions" },
+        { id: "social" as const, icon: Share2, label: "Social" },
+      ],
+    },
+    {
+      label: "BUSINESS",
+      items: [
+        { id: "finance" as const, icon: BarChart3, label: "Finance" },
+        { id: "news" as const, icon: Newspaper, label: "News" },
+      ],
+    },
+    {
+      label: "SYSTEM",
+      items: [
+        { id: "cron" as const, icon: Clock, label: "Schedules" },
+        { id: "logs" as const, icon: FileText, label: "Logs" },
+        { id: "tools" as const, icon: Wrench, label: "Tools" },
+        { id: "knowledge" as const, icon: FileText, label: "Knowledge" },
+        { id: "approvals" as const, icon: Shield, label: "Approvals" },
+        { id: "releases" as const, icon: Tag, label: "Releases" },
+      ],
+    },
   ];
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* ===== Icon Sidebar ===== */}
-      <aside className="w-16 flex flex-col items-center py-6 border-r border-border bg-card/50 z-20 shrink-0">
-        {/* Logo */}
-        <div className="mb-8 w-10 h-10 rounded bg-primary/20 flex items-center justify-center shadow-[0_0_5px_oklch(0.58_0.2_260/0.3)] cursor-pointer group">
-          <Terminal className="w-5 h-5 text-primary group-hover:animate-pulse" />
+      {/* ===== Labeled Sidebar ===== */}
+      <aside className="w-56 flex flex-col border-r border-border bg-card/50 z-20 shrink-0">
+        {/* Logo Header */}
+        <div className="h-14 flex items-center gap-3 px-4 border-b border-border shrink-0">
+          <div className="w-8 h-8 rounded bg-primary/20 flex items-center justify-center shadow-[0_0_5px_oklch(0.58_0.2_260/0.3)]">
+            <Terminal className="w-4 h-4 text-primary" />
+          </div>
+          <span className="font-bold text-sm tracking-wider uppercase text-foreground">Mission Control</span>
         </div>
 
-        {/* Nav */}
-        <nav className="flex-1 flex flex-col gap-3 w-full items-center">
-          {NAV_ITEMS.map((item) => {
-            const isActive = item.id && activeView === item.id;
-            const Icon = item.icon;
-            return (
-              <Tooltip key={item.label}>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => {
-                      if (item.id) {
+        {/* Nav Sections */}
+        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
+          {NAV_SECTIONS.map((section) => (
+            <div key={section.label}>
+              <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 px-3 mb-2">
+                {section.label}
+              </div>
+              <div className="space-y-0.5">
+                {section.items.map((item) => {
+                  const isActive = activeView === item.id;
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
                         setActiveView(item.id);
-                        if (item.id === "agents") fetchAgents();
-                      }
-                    }}
-                    className={`w-10 h-10 rounded flex items-center justify-center transition-all relative group ${
-                      isActive
-                        ? "text-primary bg-primary/10 shadow-[0_0_10px_oklch(0.58_0.2_260/0.3)]"
-                        : "text-muted-foreground hover:text-primary hover:bg-primary/5"
-                    }`}
-                  >
-                    {isActive && (
-                      <span className="absolute left-0 w-1 h-6 bg-primary rounded-r" />
-                    )}
-                    <Icon className="w-5 h-5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  <p>{item.label}</p>
-                </TooltipContent>
-              </Tooltip>
-            );
-          })}
+                        if (item.id === "office") fetchAgents();
+                      }}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all ${
+                        isActive
+                          ? "text-primary bg-primary/10 shadow-[0_0_10px_oklch(0.58_0.2_260/0.15)] font-medium"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                      }`}
+                    >
+                      <Icon className="w-4 h-4 shrink-0" />
+                      <span className="truncate">{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
-        {/* Bottom actions */}
-        <div className="flex flex-col gap-3 w-full items-center">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => setActiveView("settings")}
-                className={`w-10 h-10 rounded flex items-center justify-center transition-all relative group ${
-                  activeView === "settings"
-                    ? "text-primary bg-primary/10 shadow-[0_0_10px_oklch(0.58_0.2_260/0.3)]"
-                    : "text-muted-foreground hover:text-primary hover:bg-primary/5"
-                }`}
-              >
-                {activeView === "settings" && (
-                  <span className="absolute left-0 w-1 h-6 bg-primary rounded-r" />
-                )}
-                <Settings className="w-5 h-5" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>Settings</p>
-            </TooltipContent>
-          </Tooltip>
-          <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary border border-primary/30">
-            MC
-          </div>
+        {/* Bottom: Settings */}
+        <div className="border-t border-border p-3 space-y-1">
+          <button
+            onClick={() => setActiveView("settings")}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all ${
+              activeView === "settings"
+                ? "text-primary bg-primary/10 font-medium"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            }`}
+          >
+            <Settings className="w-4 h-4 shrink-0" />
+            <span>Settings</span>
+          </button>
         </div>
       </aside>
 
@@ -530,6 +568,8 @@ export default function Dashboard() {
 
         {/* Content area */}
         <div className="flex-1 flex overflow-hidden z-10 relative">
+          {activeView === "overview" && <CEODashboard onNavigate={setActiveView} />}
+          {activeView === "office" && <AgentOffice />}
           {activeView === "board" && (
             <KanbanBoard
               columns={COLUMNS}
@@ -554,13 +594,21 @@ export default function Dashboard() {
             />
           )}
           {activeView === "missions" && <MissionsView />}
+          {activeView === "workflows" && <WorkflowsView />}
+          {activeView === "knowledge" && <KnowledgeBase />}
           {activeView === "tools" && <ToolsPlayground />}
           {activeView === "usage" && <CostDashboard />}
+          {activeView === "finance" && <FinanceView />}
+          {activeView === "models" && <ModelManagement />}
           {activeView === "approvals" && <ApprovalCenter />}
           {activeView === "cron" && <CronScheduler />}
           {activeView === "logs" && <LogsViewer />}
           {activeView === "settings" && <SettingsPanel />}
           {activeView === "chat" && <ChatPanel />}
+          {activeView === "news" && <NewsView />}
+          {activeView === "social" && <SocialMediaView />}
+          {activeView === "docs" && <DocsView />}
+          {activeView === "releases" && <ReleaseNotes />}
 
           {/* ===== Floating Live Terminal ===== */}
           <aside
@@ -584,7 +632,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 h-0 min-h-0">
               <div className="p-4 space-y-4 text-muted-foreground font-mono">
                 {activity.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground/50">
@@ -712,17 +760,24 @@ function KanbanBoard({
               {/* Column Header */}
               <div className="p-3 border-b border-border/50 flex justify-between items-center relative z-10">
                 <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${getColumnDotColor(col.id)}`} />
-                  <h3 className={`font-bold text-sm tracking-wide ${isActive ? "text-primary" : ""}`}>
+                  <span className={`w-2 h-2 rounded-full ${getColumnDotColor(col.id)} ${col.id === "review" && colTasks.length > 0 ? "animate-ping" : ""}`} />
+                  <h3 className={`font-bold text-sm tracking-wide ${isActive ? "text-primary" : col.id === "review" && colTasks.length > 0 ? "text-amber-500" : ""}`}>
                     {col.label}
                   </h3>
                   <span className={`text-[10px] px-1.5 rounded font-mono border ${
                     isActive
                       ? "bg-primary/20 text-primary border-primary/20"
+                      : col.id === "review" && colTasks.length > 0
+                      ? "bg-amber-500/20 text-amber-500 border-amber-500/30 animate-pulse"
                       : "bg-muted text-muted-foreground border-border"
                   }`}>
                     {colTasks.length}
                   </span>
+                  {col.id === "review" && colTasks.length > 0 && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500 text-black font-bold animate-bounce">
+                      @rut!
+                    </span>
+                  )}
                 </div>
                 {col.id === "inbox" ? (
                   <button
@@ -739,7 +794,7 @@ function KanbanBoard({
               </div>
 
               {/* Column Body */}
-              <ScrollArea className="flex-1">
+              <ScrollArea className="flex-1 h-0 min-h-0">
                 <div
                   className="p-3 flex flex-col gap-3 min-h-[120px] relative z-10"
                   onDragOver={(e) => onDragOver(e, col.id)}
@@ -877,7 +932,9 @@ function TaskCard({
             <span className="text-[10px] font-mono text-primary animate-pulse">🤖 Working...</span>
           )}
           {isReview && (
-            <span className="text-[10px] font-mono text-amber-500">📋 Needs Review</span>
+            <span className="text-[10px] font-mono text-amber-500 animate-pulse flex items-center gap-1">
+              📋 <span className="font-bold">@{task.reviewer_id || 'rut'}</span> to approve
+            </span>
           )}
           {showDispatch && (
             <Button
@@ -1173,14 +1230,23 @@ function TaskDetailModal({ task, onClose, onMoveToDone, onRefresh }: {
     if (!newComment.trim() || sendingComment) return;
     setSendingComment(true);
     try {
-      await fetch("/api/tasks/comments", {
+      const res = await fetch("/api/tasks/comments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ taskId: task.id, content: newComment.trim() }),
       });
+      if (!res.ok) {
+        const err = await res.json();
+        console.error("Failed to add comment:", err);
+        alert("Failed to save note: " + (err.error || res.statusText));
+        return;
+      }
       setNewComment("");
       await fetchComments();
-    } catch {} finally {
+    } catch (e) {
+      console.error("Comment error:", e);
+      alert("Failed to save note");
+    } finally {
       setSendingComment(false);
     }
   };
@@ -1238,8 +1304,24 @@ function TaskDetailModal({ task, onClose, onMoveToDone, onRefresh }: {
         </DialogHeader>
 
         {task.description && (
-          <div className="p-3 rounded-md bg-muted border border-border text-sm text-muted-foreground leading-relaxed">
+          <div className="p-3 rounded-md bg-muted border border-border text-sm text-muted-foreground leading-relaxed break-words overflow-y-auto max-h-[120px]" style={{ scrollbarWidth: 'thin' }}>
             {task.description}
+          </div>
+        )}
+
+        {/* Reviewer Banner for tasks in review */}
+        {isReview && (
+          <div className="flex items-center gap-3 p-3 rounded-md bg-amber-500/10 border border-amber-500/30 animate-pulse">
+            <div className="w-10 h-10 rounded-full bg-amber-500/20 border-2 border-amber-500 flex items-center justify-center text-lg">
+              👁️
+            </div>
+            <div className="flex-1">
+              <div className="text-sm font-bold text-amber-500">Awaiting approval from @{task.reviewer_id || 'rut'}</div>
+              <div className="text-[11px] text-amber-400/70">Review the work below and Approve or Request Rework</div>
+            </div>
+            <div className="animate-bounce">
+              <span className="text-2xl">👈</span>
+            </div>
           </div>
         )}
 
@@ -1262,7 +1344,7 @@ function TaskDetailModal({ task, onClose, onMoveToDone, onRefresh }: {
         )}
 
         {/* Comments */}
-        <div className="flex-1 space-y-2 min-h-0">
+        <div className="flex-1 space-y-2 min-h-0 overflow-hidden">
           <h4 className="text-sm font-medium text-muted-foreground">
             Activity ({comments.length})
           </h4>
@@ -1273,12 +1355,12 @@ function TaskDetailModal({ task, onClose, onMoveToDone, onRefresh }: {
               No activity yet. Assign an agent to start working on this task.
             </div>
           ) : (
-            <ScrollArea className="max-h-[250px]" ref={scrollRef}>
-              <div className="space-y-2">
+            <ScrollArea className="max-h-[40vh]" ref={scrollRef}>
+              <div className="space-y-2 pr-2">
                 {comments.map((c) => (
                   <div
                     key={c.id}
-                    className={`p-3 rounded-md text-sm border ${
+                    className={`p-3 rounded-md text-sm border overflow-hidden ${
                       c.author_type === "agent"
                         ? "bg-primary/5 border-primary/20"
                         : c.author_type === "system"
@@ -1291,7 +1373,7 @@ function TaskDetailModal({ task, onClose, onMoveToDone, onRefresh }: {
                     }`}>
                       {c.author_type === "agent" ? `🤖 ${c.agent_id || "Agent"}` : c.author_type === "system" ? "⚙️ System" : "👤 You"}
                     </div>
-                    <div className="text-foreground whitespace-pre-wrap leading-relaxed text-[13px]">
+                    <div className="text-foreground whitespace-pre-wrap leading-relaxed text-[13px] break-words overflow-hidden max-w-full">
                       {c.content.length > 800 ? c.content.slice(0, 800) + "..." : c.content}
                     </div>
                     <div className="text-[11px] text-muted-foreground mt-1">
@@ -1505,103 +1587,6 @@ function AgentsView({ status, agents, onRefresh }: { status: GatewayStatus; agen
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-// --- Missions View ---
-
-function MissionsView() {
-  const [missions, setMissions] = useState<{ id: string; name: string; description: string; status: string; created_at: string }[]>([]);
-  const [showCreate, setShowCreate] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newDesc, setNewDesc] = useState("");
-
-  const fetchMissions = useCallback(async () => {
-    try {
-      const res = await fetch("/api/missions");
-      const data = await res.json();
-      setMissions(data.missions || []);
-    } catch { /* retry */ }
-  }, []);
-
-  useEffect(() => { fetchMissions(); }, [fetchMissions]);
-
-  const createMission = async () => {
-    if (!newName.trim()) return;
-    await fetch("/api/missions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newName.trim(), description: newDesc.trim() }),
-    });
-    setNewName("");
-    setNewDesc("");
-    setShowCreate(false);
-    await fetchMissions();
-  };
-
-  return (
-    <div className="flex-1 overflow-auto p-6 space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="font-semibold">Your Missions</h3>
-        <Button size="sm" onClick={() => setShowCreate(true)}>
-          <Plus className="w-4 h-4 mr-1" /> New Mission
-        </Button>
-      </div>
-
-      {missions.length === 0 && !showCreate ? (
-        <div className="text-center py-12 space-y-3">
-          <Rocket className="w-10 h-10 mx-auto text-muted-foreground/30" />
-          <p className="text-muted-foreground text-sm">No missions yet. Create your first mission.</p>
-          <Button onClick={() => setShowCreate(true)}>Create Mission</Button>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {showCreate && (
-            <div className="bg-card border border-primary/20 rounded-lg p-5 space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Mission Name</label>
-                <input
-                  className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="e.g., Content Marketing Campaign"
-                  autoFocus
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Description</label>
-                <textarea
-                  className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring min-h-[60px] resize-y"
-                  value={newDesc}
-                  onChange={(e) => setNewDesc(e.target.value)}
-                  placeholder="What's the goal?"
-                />
-              </div>
-              <div className="flex gap-2 justify-end">
-                <Button variant="outline" size="sm" onClick={() => setShowCreate(false)}>Cancel</Button>
-                <Button size="sm" onClick={createMission}>Create</Button>
-              </div>
-            </div>
-          )}
-          {missions.map((m) => (
-            <div key={m.id} className="bg-card border border-border rounded-lg p-5 hover:border-primary/50 transition-all">
-              <div className="flex justify-between items-center">
-                <div>
-                  <div className="font-semibold flex items-center gap-2">
-                    <Rocket className="w-4 h-4 text-primary" /> {m.name}
-                  </div>
-                  {m.description && (
-                    <div className="text-sm text-muted-foreground mt-1">{m.description}</div>
-                  )}
-                </div>
-                <Badge variant="outline" className="capitalize">{m.status}</Badge>
-              </div>
-              <div className="text-xs text-muted-foreground mt-3">{timeAgo(m.created_at)}</div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

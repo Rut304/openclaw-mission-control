@@ -145,7 +145,7 @@ export function SettingsPanel() {
     data?.byProvider[selectedProvider] ?? [];
 
   return (
-    <div className="space-y-8">
+    <div className="flex-1 overflow-auto min-h-0 p-4 space-y-6">
       {/* Header */}
       <div>
         <h2 className="text-2xl font-bold flex items-center gap-3">

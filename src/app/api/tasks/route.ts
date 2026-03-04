@@ -61,6 +61,21 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
 
+  // Evidence requirement: warn if moving to 'done' without evidence
+  const movingToDone = patch.status === "done" && existing.status !== "done";
+  const hasEvidence = patch.evidence || (existing.evidence && existing.evidence !== "[]");
+  
+  if (movingToDone && !hasEvidence) {
+    // Log warning but allow for now (can make this a hard block later)
+    logActivity({
+      id: uuidv4(),
+      type: "evidence_warning",
+      task_id: id,
+      message: `⚠️ Task "${existing.title}" marked done WITHOUT EVIDENCE. This violates verification protocol.`,
+      metadata: { rule_violation: "no_evidence_on_completion" },
+    });
+  }
+
   const task = updateTask(id, patch);
 
   if (patch.status && patch.status !== existing.status) {

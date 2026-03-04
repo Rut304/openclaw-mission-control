@@ -145,7 +145,8 @@ export function ApprovalCenter() {
         </div>
       </div>
 
-      <ScrollArea className="flex-1 p-6">
+      <ScrollArea className="flex-1 h-0 min-h-0">
+        <div className="p-6">
         {/* Pending approvals */}
         {loading ? (
           <div className="flex items-center justify-center py-20">
@@ -156,13 +157,13 @@ export function ApprovalCenter() {
             <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
               Pending Approvals
             </h3>
-            {approvals.map((req) => {
+            {approvals.map((req, idx) => {
               const cmd = req.command || req.cmd || "Unknown command";
               const risk = getRiskLevel(cmd);
               const RiskIcon = risk.icon;
               return (
                 <div
-                  key={req.id}
+                  key={req.id || `pending-${idx}`}
                   className="glass-panel rounded-lg p-5 border-l-4 border-l-yellow-500/50"
                 >
                   <div className="flex items-start justify-between mb-3">
@@ -276,6 +277,7 @@ export function ApprovalCenter() {
             </div>
           </div>
         )}
+        </div>
       </ScrollArea>
 
       {/* Confirm dialog */}

@@ -1,5 +1,8 @@
 import WebSocket from "ws";
-import { randomUUID } from "crypto";
+import { randomUUID, createPrivateKey, createPublicKey, sign } from "crypto";
+import { readFileSync } from "fs";
+import { join } from "path";
+import { homedir } from "os";
 
 // --- Types ---
 
@@ -46,6 +49,73 @@ interface PendingRequest {
   timeout: ReturnType<typeof setTimeout>;
 }
 
+// --- Device Identity helpers (Ed25519 signing for gateway auth) ---
+
+interface DeviceIdentity {
+  deviceId: string;
+  publicKeyPem: string;
+  privateKeyPem: string;
+}
+
+const ED25519_SPKI_PREFIX = Buffer.from("302a300506032b6570032100", "hex");
+
+function base64UrlEncode(buf: Buffer): string {
+  return buf.toString("base64").replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/g, "");
+}
+
+function derivePublicKeyRaw(publicKeyPem: string): Buffer {
+  const spki = createPublicKey(publicKeyPem).export({ type: "spki", format: "der" });
+  if (spki.length === ED25519_SPKI_PREFIX.length + 32 &&
+      spki.subarray(0, ED25519_SPKI_PREFIX.length).equals(ED25519_SPKI_PREFIX)) {
+    return spki.subarray(ED25519_SPKI_PREFIX.length);
+  }
+  return spki;
+}
+
+function publicKeyRawBase64Url(publicKeyPem: string): string {
+  return base64UrlEncode(derivePublicKeyRaw(publicKeyPem));
+}
+
+function signDevicePayload(privateKeyPem: string, payload: string): string {
+  const key = createPrivateKey(privateKeyPem);
+  return base64UrlEncode(sign(null, Buffer.from(payload, "utf8"), key));
+}
+
+function buildDeviceAuthPayloadV3(params: {
+  deviceId: string; clientId: string; clientMode: string; role: string;
+  scopes: string[]; signedAtMs: number; token: string | null; nonce: string;
+  platform: string; deviceFamily?: string;
+}): string {
+  const scopes = params.scopes.join(",");
+  const token = params.token ?? "";
+  const platform = (params.platform ?? "").trim().toLowerCase();
+  const deviceFamily = (params.deviceFamily ?? "").trim().toLowerCase();
+  return [
+    "v3", params.deviceId, params.clientId, params.clientMode, params.role,
+    scopes, String(params.signedAtMs), token, params.nonce, platform, deviceFamily
+  ].join("|");
+}
+
+function loadDeviceIdentity(): DeviceIdentity | null {
+  try {
+    const idPath = join(homedir(), ".openclaw", "identity", "device.json");
+    const raw = JSON.parse(readFileSync(idPath, "utf-8"));
+    if (raw.deviceId && raw.publicKeyPem && raw.privateKeyPem) return raw;
+  } catch { /* no device identity available */ }
+  return null;
+}
+
+function loadDeviceAuthToken(deviceId: string): string | null {
+  try {
+    const authPath = join(homedir(), ".openclaw", "identity", "device-auth.json");
+    const raw = JSON.parse(readFileSync(authPath, "utf-8"));
+    if (raw.deviceId === deviceId && raw.tokens?.operator?.token) {
+      return raw.tokens.operator.token;
+    }
+  } catch { /* no device auth token */ }
+  return null;
+}
+
 // Gateway protocol frame types
 interface EventFrame {
   type: "event";
@@ -75,6 +145,7 @@ export class OpenClawClient {
   private ws: WebSocket | null = null;
   private url: string;
   private authToken?: string;
+  private deviceIdentity: DeviceIdentity | null = null;
   private pendingRequests: Map<string, PendingRequest> = new Map();
   private eventListeners: Map<string, Set<EventCallback>> = new Map();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -86,6 +157,7 @@ export class OpenClawClient {
   constructor(url = "ws://127.0.0.1:18789", opts?: { authToken?: string }) {
     this.url = url;
     this.authToken = opts?.authToken;
+    this.deviceIdentity = loadDeviceIdentity();
   }
 
   // --- Connection with proper Gateway protocol ---
@@ -235,6 +307,40 @@ export class OpenClawClient {
     connectTimeout?: ReturnType<typeof setTimeout>
   ): void {
     const id = randomUUID();
+    const role = "operator";
+    const scopes = ["operator.admin"];
+    const signedAtMs = Date.now();
+
+    // Resolve auth token: explicit gateway token or device token
+    const deviceToken = this.deviceIdentity
+      ? loadDeviceAuthToken(this.deviceIdentity.deviceId)
+      : null;
+    const authToken = this.authToken ?? deviceToken ?? undefined;
+
+    // Build device identity block (Ed25519 signed)
+    let device: { id: string; publicKey: string; signature: string; signedAt: number; nonce: string } | undefined;
+    if (this.deviceIdentity && nonce) {
+      const payload = buildDeviceAuthPayloadV3({
+        deviceId: this.deviceIdentity.deviceId,
+        clientId: "gateway-client",
+        clientMode: "backend",
+        role,
+        scopes,
+        signedAtMs,
+        token: authToken ?? null,
+        nonce,
+        platform: process.platform,
+      });
+      const signature = signDevicePayload(this.deviceIdentity.privateKeyPem, payload);
+      device = {
+        id: this.deviceIdentity.deviceId,
+        publicKey: publicKeyRawBase64Url(this.deviceIdentity.publicKeyPem),
+        signature,
+        signedAt: signedAtMs,
+        nonce,
+      };
+    }
+
     const frame: RequestFrame = {
       type: "req",
       id,
@@ -246,16 +352,16 @@ export class OpenClawClient {
           id: "gateway-client",
           displayName: "Mission Control Dashboard",
           version: "1.0.0",
-          platform: "node",
+          platform: process.platform,
           mode: "backend",
         },
         caps: [],
-        auth: this.authToken
-          ? { token: this.authToken }
+        auth: authToken
+          ? { token: authToken, deviceToken: deviceToken ?? undefined }
           : undefined,
-        role: "operator",
-        scopes: ["operator.admin"],
-        device: undefined,
+        role,
+        scopes,
+        device,
       },
     };
 

@@ -42,6 +42,7 @@ interface ScheduleObject {
 
 interface CronJob {
   id: string;
+  name?: string;
   prompt?: string;
   schedule: string | ScheduleObject;
   enabled: boolean;
@@ -249,7 +250,8 @@ export function CronScheduler() {
         </div>
       </div>
 
-      <ScrollArea className="flex-1 p-6">
+      <ScrollArea className="flex-1 h-0 min-h-0">
+        <div className="p-6">
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-6 h-6 animate-spin text-primary" />
@@ -291,7 +293,7 @@ export function CronScheduler() {
                     {/* Info */}
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-sm truncate">
-                        {job.prompt || "Unnamed task"}
+                        {job.name || job.prompt || "Unnamed task"}
                       </div>
                       <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
@@ -397,6 +399,7 @@ export function CronScheduler() {
             })}
           </div>
         )}
+        </div>
       </ScrollArea>
 
       {/* Create dialog */}

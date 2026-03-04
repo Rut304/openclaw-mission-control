@@ -161,9 +161,9 @@ export function ToolsPlayground() {
   const Icon = selectedTool.icon;
 
   return (
-    <div className="flex-1 flex overflow-hidden">
+    <div className="flex-1 flex overflow-hidden h-full">
       {/* Left panel — Tool list */}
-      <div className="w-72 border-r border-border bg-card/30 flex flex-col shrink-0">
+      <div className="w-56 border-r border-border bg-card/30 flex flex-col shrink-0">
         {/* Search */}
         <div className="p-3 border-b border-border">
           <div className="relative">
@@ -196,7 +196,7 @@ export function ToolsPlayground() {
         </div>
 
         {/* Tool list */}
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1 h-0 min-h-0">
           <div className="p-2 space-y-0.5">
             {sortedTools.map((tool) => {
               const TIcon = tool.icon;
@@ -261,7 +261,8 @@ export function ToolsPlayground() {
           </div>
         </div>
 
-        <ScrollArea className="flex-1 p-5">
+        <ScrollArea className="flex-1 h-0 min-h-0">
+          <div className="p-5">
           {/* Parameters */}
           {selectedTool.params.length > 0 && (
             <div className="mb-6">
@@ -356,6 +357,7 @@ export function ToolsPlayground() {
               </p>
             </div>
           )}
+          </div>
         </ScrollArea>
       </div>
     </div>

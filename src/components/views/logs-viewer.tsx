@@ -270,7 +270,7 @@ export function LogsViewer() {
       {/* Log content */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-auto bg-muted/50 font-mono text-xs leading-relaxed"
+        className="flex-1 h-0 min-h-0 overflow-auto bg-muted/50 font-mono text-xs leading-relaxed"
         onScroll={(e) => {
           const el = e.currentTarget;
           const isAtBottom =
