@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useTheme } from "next-themes";
 import {
   LayoutDashboard,
   Bot,
@@ -15,8 +14,7 @@ import {
   X,
   Wifi,
   WifiOff,
-  Moon,
-  Sun,
+
   Monitor,
   Terminal,
   AlertTriangle,
@@ -196,31 +194,6 @@ function getActivityLabel(type: string): string {
   if (type.includes("review")) return "System:";
   if (type.includes("agent")) return "Agent:";
   return "System:";
-}
-
-// --- Theme Toggle ---
-
-function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  if (!mounted) return <div className="w-8 h-8" />;
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          className="w-8 h-8 rounded flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all"
-        >
-          {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="bottom">
-        <p>{theme === "dark" ? "Light mode" : "Dark mode"}</p>
-      </TooltipContent>
-    </Tooltip>
-  );
 }
 
 // --- View routing ---
@@ -562,7 +535,6 @@ export default function Dashboard() {
                 <p>{terminalOpen ? "Hide terminal" : "Show terminal"}</p>
               </TooltipContent>
             </Tooltip>
-            <ThemeToggle />
           </div>
         </header>
 
