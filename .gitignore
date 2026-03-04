@@ -50,3 +50,12 @@ data/
 data/mission-control.db
 data/mission-control.db-wal
 data/mission-control.db-shm
+
+# Runtime files (do not track)
+mission-control.db
+mission-control.db-wal
+mission-control.db-shm
+dashboard.log
+logs/
+config.json
+*.bak
