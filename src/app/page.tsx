@@ -31,6 +31,8 @@ import {
   Share2,
   Tag,
   FolderOpen,
+  Menu,
+  PanelLeftClose,
 } from "lucide-react";
 import { ToolsPlayground } from "@/components/views/tools-playground";
 import { CostDashboard } from "@/components/views/cost-dashboard";
@@ -239,6 +241,7 @@ export default function Dashboard() {
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const [terminalOpen, setTerminalOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // --- Data Fetching ---
 
@@ -410,8 +413,20 @@ export default function Dashboard() {
 
   return (
     <div className="flex h-screen overflow-hidden">
+      {/* ===== Mobile overlay ===== */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-30 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* ===== Labeled Sidebar ===== */}
-      <aside className="w-56 flex flex-col border-r border-border bg-card/50 z-20 shrink-0">
+      <aside
+        className={`fixed inset-y-0 left-0 w-56 flex flex-col border-r border-border bg-card z-40 shrink-0 transition-transform duration-200 ease-in-out md:static md:translate-x-0 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
         {/* Logo Header */}
         <div className="h-14 flex items-center gap-3 px-4 border-b border-border shrink-0">
           <div className="w-8 h-8 rounded bg-primary/20 flex items-center justify-center shadow-[0_0_5px_oklch(0.58_0.2_260/0.3)]">
@@ -437,6 +452,7 @@ export default function Dashboard() {
                       onClick={() => {
                         setActiveView(item.id);
                         if (item.id === "office") fetchAgents();
+                        setSidebarOpen(false);
                       }}
                       className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all ${
                         isActive
@@ -457,7 +473,10 @@ export default function Dashboard() {
         {/* Bottom: Settings */}
         <div className="border-t border-border p-3 space-y-1">
           <button
-            onClick={() => setActiveView("settings")}
+            onClick={() => {
+              setActiveView("settings");
+              setSidebarOpen(false);
+            }}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all ${
               activeView === "settings"
                 ? "text-primary bg-primary/10 font-medium"
@@ -476,11 +495,18 @@ export default function Dashboard() {
         <div className="absolute inset-0 z-0 opacity-50 pointer-events-none grid-pattern" />
 
         {/* Header */}
-        <header className="h-14 border-b border-border bg-card/80 backdrop-blur-sm flex items-center justify-between px-6 z-10 shrink-0">
+        <header className="h-14 border-b border-border bg-card/80 backdrop-blur-sm flex items-center justify-between px-3 sm:px-6 z-10 shrink-0">
           <div className="flex items-center gap-4">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="md:hidden w-8 h-8 rounded flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
             <h1 className="text-lg font-bold tracking-wider uppercase flex items-center gap-2">
               <span className="text-primary font-mono text-xl">{"//"}</span>
-              Mission Control
+              <span className="hidden sm:inline">Mission Control</span>
+              <span className="sm:hidden">MC</span>
             </h1>
             <Separator orientation="vertical" className="h-6" />
             <div className="flex items-center gap-2 text-xs font-mono text-primary">
@@ -494,9 +520,9 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4 text-xs font-mono">
+          <div className="flex items-center gap-2 sm:gap-4 text-xs font-mono">
             {/* Connection pill */}
-            <div className="flex items-center gap-2 text-muted-foreground bg-muted px-3 py-1.5 rounded border border-border">
+            <div className="hidden sm:flex items-center gap-2 text-muted-foreground bg-muted px-3 py-1.5 rounded border border-border">
               {gatewayStatus.connected ? (
                 <Wifi className="w-3.5 h-3.5 text-green-500" />
               ) : (

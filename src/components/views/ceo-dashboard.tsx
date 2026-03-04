@@ -28,6 +28,11 @@ import {
   Share2,
   Target,
   Newspaper,
+  Heart,
+  Server,
+  Cpu,
+  HardDrive,
+  Wifi,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -91,6 +96,15 @@ interface SocialPlatform {
   trend: "up" | "down" | "flat";
   icon: string;
   color: string;
+}
+
+interface SystemHealth {
+  status: string;
+  version: string;
+  uptimeHuman: string;
+  memory: { rss: string; heapUsed: string; heapTotal: string };
+  system: { hostname: string; cpus: number; loadAvg: number[]; freeMem: string; totalMem: string };
+  gateway: { connected: boolean; url: string };
 }
 
 // ============================================================
@@ -161,20 +175,32 @@ function KPICard({
 }
 
 function AgentRow({ agent }: { agent: AgentStatus }) {
-  const statusConfig: Record<string, { dot: string; label: string }> = {
-    active: { dot: "bg-green-500 shadow-[0_0_6px_lime]", label: "Active" },
-    working: { dot: "bg-green-500 animate-pulse shadow-[0_0_6px_lime]", label: "Working" },
-    idle: { dot: "bg-yellow-500", label: "Idle" },
-    blocked: { dot: "bg-red-500 animate-pulse", label: "Blocked" },
-    error: { dot: "bg-red-500", label: "Error" },
+  const statusConfig: Record<string, { dot: string; label: string; ring: string }> = {
+    active: { dot: "bg-green-500 shadow-[0_0_6px_lime]", label: "Active", ring: "ring-green-500/20" },
+    working: { dot: "bg-green-500 animate-pulse shadow-[0_0_6px_lime]", label: "Working", ring: "ring-green-500/30" },
+    idle: { dot: "bg-yellow-500", label: "Idle", ring: "" },
+    blocked: { dot: "bg-red-500 animate-pulse", label: "Blocked", ring: "ring-red-500/20" },
+    error: { dot: "bg-red-500", label: "Error", ring: "ring-red-500/20" },
   };
   const s = statusConfig[agent.status] || statusConfig.idle;
+  const lastSeen = agent.lastActivity ? formatTime(agent.lastActivity) : "—";
+  const modelShort = agent.model ? agent.model.split("/").pop()?.split("-").slice(0, 2).join("-") : null;
 
   return (
-    <div className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-muted/40 transition-colors">
+    <div className={`flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-muted/40 transition-colors ${s.ring ? `ring-1 ${s.ring}` : ""}`}>
       <div className="relative">
-        <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center">
-          <Bot className="w-4 h-4 text-primary" />
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+          agent.status === "working" || agent.status === "active"
+            ? "bg-green-500/10 border border-green-500/30"
+            : agent.status === "error" || agent.status === "blocked"
+            ? "bg-red-500/10 border border-red-500/30"
+            : "bg-primary/10 border border-primary/30"
+        }`}>
+          <Bot className={`w-4 h-4 ${
+            agent.status === "working" || agent.status === "active" ? "text-green-500" :
+            agent.status === "error" || agent.status === "blocked" ? "text-red-400" :
+            "text-primary"
+          }`} />
         </div>
         <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-background ${s.dot}`} />
       </div>
@@ -190,13 +216,19 @@ function AgentRow({ agent }: { agent: AgentStatus }) {
           }`}>
             {s.label}
           </span>
+          {modelShort && (
+            <span className="text-[8px] px-1 py-0.5 rounded bg-muted text-muted-foreground font-mono hidden sm:inline">
+              {modelShort}
+            </span>
+          )}
         </div>
         {agent.currentTask && (
           <div className="text-[11px] text-muted-foreground truncate mt-0.5">{agent.currentTask}</div>
         )}
       </div>
-      <div className="text-right shrink-0">
+      <div className="text-right shrink-0 space-y-0.5">
         <div className="text-xs font-mono text-muted-foreground">${(agent.cost || 0).toFixed(2)}</div>
+        <div className="text-[9px] font-mono text-muted-foreground/60">{lastSeen}</div>
       </div>
     </div>
   );
@@ -321,10 +353,11 @@ export function CEODashboard({ onNavigate }: { onNavigate?: (view: ViewId) => vo
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [totalCost, setTotalCost] = useState(0);
   const [socialPlatforms, setSocialPlatforms] = useState<SocialPlatform[]>([]);
+  const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
-      const [agentsRes, costsRes, kalshiRes, statusRes, prioritiesRes, socialRes] =
+      const [agentsRes, costsRes, kalshiRes, statusRes, prioritiesRes, socialRes, healthRes] =
         await Promise.allSettled([
           fetch("/api/openclaw/status"),
           fetch("/api/costs?period=today"),
@@ -332,6 +365,7 @@ export function CEODashboard({ onNavigate }: { onNavigate?: (view: ViewId) => vo
           fetch("/api/dashboard/status"),
           fetch("/api/ceo-board"),
           fetch("/api/social"),
+          fetch("/api/health"),
         ]);
 
       if (agentsRes.status === "fulfilled") {
@@ -413,6 +447,13 @@ export function CEODashboard({ onNavigate }: { onNavigate?: (view: ViewId) => vo
           );
         }
         setSocialPlatforms(platforms);
+      }
+
+      if (healthRes.status === "fulfilled") {
+        const data = await healthRes.value.json();
+        if (data.status) {
+          setSystemHealth(data);
+        }
       }
     } catch (err) {
       console.error("Dashboard fetch error:", err);
@@ -599,8 +640,58 @@ export function CEODashboard({ onNavigate }: { onNavigate?: (view: ViewId) => vo
             </div>
           </div>
 
-          {/* CENTER: Agent Team + Costs */}
+          {/* CENTER: System Heartbeat + Agent Team + Costs */}
           <div className="space-y-6">
+            {/* System Heartbeat */}
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-semibold text-sm flex items-center gap-2">
+                  <Heart className={`w-4 h-4 ${systemHealth?.status === "healthy" ? "text-green-500 animate-pulse" : "text-red-400"}`} />
+                  System Heartbeat
+                </h2>
+                <Badge variant={systemHealth?.status === "healthy" ? "secondary" : "destructive"} className="text-[10px] gap-1">
+                  <div className={`w-1.5 h-1.5 rounded-full ${systemHealth?.status === "healthy" ? "bg-green-500" : "bg-red-500"}`} />
+                  {systemHealth?.status === "healthy" ? "Healthy" : "Unknown"}
+                </Badge>
+              </div>
+              {systemHealth ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex items-center gap-2 text-xs">
+                    <Server className="w-3.5 h-3.5 text-muted-foreground" />
+                    <div>
+                      <div className="text-muted-foreground text-[10px]">Uptime</div>
+                      <div className="font-mono font-medium">{systemHealth.uptimeHuman}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <Wifi className={`w-3.5 h-3.5 ${systemHealth.gateway.connected ? "text-green-500" : "text-red-400"}`} />
+                    <div>
+                      <div className="text-muted-foreground text-[10px]">Gateway</div>
+                      <div className="font-mono font-medium">{systemHealth.gateway.connected ? "Connected" : "Offline"}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <HardDrive className="w-3.5 h-3.5 text-muted-foreground" />
+                    <div>
+                      <div className="text-muted-foreground text-[10px]">Memory</div>
+                      <div className="font-mono font-medium">{systemHealth.memory.rss}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <Cpu className="w-3.5 h-3.5 text-muted-foreground" />
+                    <div>
+                      <div className="text-muted-foreground text-[10px]">Load ({systemHealth.system.cpus} cores)</div>
+                      <div className="font-mono font-medium">{systemHealth.system.loadAvg[0]?.toFixed(2)}</div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground text-center py-3">
+                  Health endpoint unavailable
+                </div>
+              )}
+            </div>
+
             <div className="rounded-xl border border-border bg-card p-4">
               <div
                 className="flex items-center justify-between mb-3 cursor-pointer hover:text-primary transition-colors"
